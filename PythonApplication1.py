@@ -7,7 +7,9 @@ import threading
 import time
 import mysql.connector
 
-value_arr = {'gold':0, 'silver':0}
+value_arr = {'gold':1, 'silver':1}
+silver_new = 1
+gold_new = 1
 
 mydb = mysql.connector.connect(
   host="localhost",
@@ -17,6 +19,14 @@ mydb = mysql.connector.connect(
 )
 
 mycursor = mydb.cursor()
+
+mycursor.execute("SELECT value FROM meta_trade_values where name='Gold'")
+gold_val = mycursor.fetchone()[0]
+value_arr['gold'] = gold_val
+
+mycursor.execute("SELECT value FROM meta_trade_values where name='Silver'")
+silver_val = mycursor.fetchone()[0]
+value_arr['silver'] = silver_val
 
  
 # establish connection to the MetaTrader 5 terminal
@@ -79,40 +89,43 @@ def do_something(sc):
     # do your stuff
     s.enter(1, 1, do_something, (sc,))
 
-    value_arr['gold_difference'] = gold_new - value_arr['gold']
-    value_arr['silver_difference'] = silver_new - value_arr['silver']
-    
-    mycursor = mydb.cursor()
+    gold_difference = gold_new - float(value_arr['gold'])
+    silver_difference = silver_new - float(value_arr['silver'])
 
-    if value_arr['gold_difference'] != 0:
+    value_arr['gold_difference'] = round(gold_difference, 2)
+    value_arr['silver_difference'] = round(silver_difference, 2)
+    
+    if value_arr['gold_difference'] != 0 and value_arr['gold'] != 0:
         if value_arr['gold_difference'] < 0:
             value_arr['gold_status'] = 0
         else:
             value_arr['gold_status'] = 1
         
         gold_percent = 100 * value_arr['gold_difference']
-        value_arr['gold_percent'] = gold_percent / value_arr['gold']
+        value_arr['gold_percent'] = gold_percent / float(value_arr['gold'])
         value_arr['gold'] = gold_new
 
         sql = "UPDATE meta_trade_values SET value = %s, diff = %s, percent = %s, status = %s WHERE name = 'Gold'"
-        val = (value_arr['gold'], value_arr['gold_difference'], value_arr['gold_percent'], value_arr['gold_status'])
+        val = (value_arr['gold'], value_arr['gold_difference'], round(value_arr['gold_percent'], 2), value_arr['gold_status'])
         mycursor.execute(sql, val)
 
 
-    if value_arr['silver_difference'] != 0:
+    if value_arr['silver_difference'] != 0 and value_arr['silver'] != 0:
         if value_arr['silver_difference'] < 0:
             value_arr['silver_status'] = 0
         else:
             value_arr['silver_status'] = 1
 
         silver_percent = 100 * value_arr['silver_difference']
-        value_arr['silver_percent'] = silver_percent / value_arr['silver']
+        value_arr['silver_percent'] = silver_percent / float(value_arr['silver'])
         value_arr['silver'] = silver_new
 
         sql = "UPDATE meta_trade_values SET value = %s, diff = %s, percent = %s, status = %s WHERE name = 'Silver'"
-        val = (value_arr['silver'], value_arr['silver_difference'], value_arr['silver_percent'], value_arr['silver_status'])
+        val = (value_arr['silver'], value_arr['silver_difference'], round(value_arr['silver_percent'], 2), value_arr['silver_status'])
         mycursor.execute(sql, val)
-
+    print("-----------------------")
+    print(value_arr)
+    print("-----------------------")
     mydb.commit()
 
     print(mycursor.rowcount, "record inserted.")
